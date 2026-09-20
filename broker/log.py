@@ -6,6 +6,32 @@ class Log:
     def __init__(self,filename):
         self.file=open(filename,"ab+")
 
+        self.index={}
+
+        self._build_index()
+
+    def _build_index(self):
+        self.file.seek(0)
+
+        offset=0
+
+        while True:
+            pos=self.file.tell()
+
+            length_bytes=self.file.read(4)
+
+            if not length_bytes:
+                break
+            length=struct.unpack(">I",length_bytes)[0]
+
+            data=self.file.read(length)
+
+            if len(data)!=length:
+                raise ValueError("Corrupted log")
+            self.index[offset]=pos
+
+            offset+=1
+
     def append(self,message):
        data=message.encode("utf-8")
 
@@ -13,34 +39,37 @@ class Log:
 
        self.file.seek(0,2)
 
+       pos=self.file.tell()
+
+
        self.file.write(length)
        self.file.write(data)
 
        self.file.flush()
 
+       self.index[len(self.index)]=pos
+
 
     def read(self,offset):
-        self.file.seek(0)
 
-        current_offset=0
+        if offset not in self.index:
+            raise IndexError("Offset does not exist")
 
-        while True:
-            length_bytes=self.file.read(4)
+        pos=self.index[offset]
 
-            if not length_bytes:
-                raise IndexError("Offset does not exist")
 
-            length=struct.unpack(">I",length_bytes)[0]
+        self.file.seek(pos)
 
-            data=self.file.read(length)
 
-            if len(data)!=length:
-                raise ValueError("Corrupted Log")
+        length_bytes=self.file.read(4)
 
-            
-            if current_offset==offset:
-                return data.decode("utf-8")
-            current_offset=current_offset+1
+
+        length=struct.unpack(">I",length_bytes)[0]
+
+        data=self.file.read(length)
+        
+        return data.decode("utf-8")
+          
 
     def close(self):
         self.file.close()    
