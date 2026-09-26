@@ -40,8 +40,7 @@ class Log:
        self.file.seek(0,2)
 
        pos=self.file.tell()
-
-
+    
        self.file.write(length)
        self.file.write(data)
 
@@ -49,6 +48,7 @@ class Log:
 
        self.index[len(self.index)]=pos
 
+       return len(self.index)
 
     def read(self,offset):
 
