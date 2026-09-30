@@ -21,18 +21,19 @@ def main():
 
     print(f"Broker listening on {HOST}:{PORT}")
 
-    buffer=b""
 
-    while b"\n" not in buffer:
+    while True:
         conn,address=server.accept()
 
         print("Client connected: ",address)
 
         data=conn.recv(4096)
 
+        buffer=b""
 
         if not data:
-            break
+            conn.close()
+            continue
 
         buffer+=data
 

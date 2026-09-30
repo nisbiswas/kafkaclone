@@ -1,6 +1,11 @@
-from broker.log import Log
+import socket
+
+HOST="127.0.0.1"
+PORT=9092
 
 OFFSET_FILE="consumer_offset.txt"
+
+
 
 def load_offset():
     try:
@@ -16,18 +21,24 @@ def save_offset(offset):
         file.write(str(offset))
 
 def main():
-    log=Log("logs/0.log")
-
+    
     offset=load_offset()
 
-    try:
-        msg=log.read(offset)
-        print("msg received: ",msg)
-        save_offset(offset+1)
-    except IndexError:
-        print("No new msgs")
+    sock=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+    sock.connect((HOST,PORT))
 
-    log.close()
+    request=f"READ {offset}\n"
+    sock.sendall(request.encode("utf-8"))
+    response=sock.recv(4096).decode("utf-8")
+
+    if response.startswith("OK "):
+        msg=response[3:]
+        print("Msg received",msg)
+        save_offset(offset+1)
+    else:
+        print(response)
+
+    sock.close() 
 
 if __name__=="__main__":
     main()
