@@ -26,48 +26,51 @@ def main():
         conn,address=server.accept()
 
         print("Client connected: ",address)
-
-        data=conn.recv(4096)
-
+        
         buffer=b""
 
-        if not data:
-            conn.close()
-            continue
+        while True:
+            data=conn.recv(4096)
 
-        buffer+=data
+            if not data:
+                break
+            buffer+=data
 
-        request=buffer.decode("utf-8").strip()
+            while b"\n" in buffer:
+                raw_request,buffer=buffer.split(b"\n",1)
 
-        print("Request: ",request)
+                request=raw_request.decode("utf-8").strip()
 
-        parts=request.split(" ",1)
+                print("Request: ",request)
 
-        cmd=parts[0]
+                parts=request.split(" ",1)
 
-        try:
-            if cmd=="APPEND":
-                msg=parts[1]
-                offset=log.append(msg)
-                response=f"OK {offset}"
+                cmd=parts[0]
 
-                print("APPEND offset: ",offset)
-                print("Index after append: ", log.index)
+                try:
+                    if cmd=="APPEND":
+                        msg=parts[1]
+                        offset=log.append(msg)
+                        response=f"OK {offset}"
 
-            elif cmd=="READ":
-                offset=int(parts[1])
-                msg=log.read(offset)
-                response=f"OK {msg}"
+                        print("APPEND offset: ",offset)
+                        print("Index after append: ", log.index)
 
-                print("READ offset: ",offset)
-                print("Index after append: ", log.index)
-                
-            else:
-                response="ERROR unknown command"
-        except Exception as e:
-            response=f"ERROR {e}"
+                    elif cmd=="READ":
+                        offset=int(parts[1])
+                        msg=log.read(offset)
+                        response=f"OK {msg}"
 
-        conn.sendall(response.encode("utf-8"))
+                        print("READ offset: ",offset)
+                        print("Index after append: ", log.index)
+                        
+                    else:
+                        response="ERROR unknown command"
+                except Exception as e:
+                    response=f"ERROR {e}"
+
+                conn.sendall((response+"\n").encode("utf-8"))
+        
 
         conn.close()
 
