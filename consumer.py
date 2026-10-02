@@ -1,4 +1,5 @@
 import socket
+import time
 
 HOST="127.0.0.1"
 PORT=9092
@@ -47,6 +48,9 @@ def main():
             print("Msg received",msg)
             offset+=1
             save_offset(offset)
+        elif response=="EMPTY":
+            print("No new messages, waiting...")
+            time.sleep(1)
         else:
             print(response)
             break
