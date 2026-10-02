@@ -5,8 +5,6 @@ PORT=9092
 
 OFFSET_FILE="consumer_offset.txt"
 
-
-
 def load_offset():
     try:
         with open(OFFSET_FILE,"r") as file:
@@ -20,6 +18,16 @@ def save_offset(offset):
     with open(OFFSET_FILE,"w") as file:
         file.write(str(offset))
 
+def recv_response(sock):
+    buffer=b""
+    while b"\n" not in buffer:
+        data=sock.recv(4096)
+        if not data:
+            raise ConnectionError("Broker closed the connection")
+        buffer+=data
+    response, _=buffer.split(b"\n",1)
+    return response.decode("utf-8")
+
 def main():
     
     offset=load_offset()
@@ -27,18 +35,23 @@ def main():
     sock=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     sock.connect((HOST,PORT))
 
-    request=f"READ {offset}\n"
-    sock.sendall(request.encode("utf-8"))
-    response=sock.recv(4096).decode("utf-8")
+    while True:
+        request=f"READ {offset}\n"
+        
+        sock.sendall(request.encode("utf-8"))
+        
+        response=recv_response(sock)
 
-    if response.startswith("OK "):
-        msg=response[3:]
-        print("Msg received",msg)
-        save_offset(offset+1)
-    else:
-        print(response)
+        if response.startswith("OK "):
+            msg=response[3:]
+            print("Msg received",msg)
+            offset+=1
+            save_offset(offset)
+        else:
+            print(response)
+            break
 
-    sock.close() 
+    sock.close()
 
 if __name__=="__main__":
     main()
