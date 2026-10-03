@@ -1,2 +1,17 @@
 .venv
 /venv
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environment
+.venv/
+venv/
+
+# Test artifacts
+.pytest_cache/
+
+# Generated Kafka log files
+logs/*.log

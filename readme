@@ -1,0 +1,284 @@
+# Kafka Clone
+
+A small Kafka-inspired message broker built from scratch in Python.
+
+The goal of this project is not to reproduce Apache Kafka completely, but to understand the core concepts behind a distributed messaging system by implementing them incrementally.
+
+## Current Architecture
+
+```text
+Producer
+   │
+   │ TCP
+   ▼
+Broker
+   │
+   ▼
+Topic
+   │
+   ├── Partition 0
+   │      └── Log
+   │
+   ├── Partition 1
+   │      └── Log
+   │
+   └── Partition 2
+          └── Log
+```
+
+## Current Features
+
+* Persistent append-only log
+* Logical message offsets
+* Offset → disk-position index
+* TCP broker
+* TCP request/response framing
+* Persistent producer connection
+* Persistent consumer connection
+* Consumer offset persistence
+* Consumer polling for new messages
+* Multiple concurrent TCP clients using threads
+* Partition abstraction
+* Partition persistence
+* Automated tests with pytest
+
+## Project Structure
+
+```text
+kafkaclone/
+│
+├── broker/
+│   ├── __init__.py
+│   ├── log.py
+│   ├── partition.py
+│   └── server.py
+│
+├── logs/
+│   └── ...
+│
+├── tests/
+│   ├── test_client.py
+│   ├── test_client2.py
+│   └── test_partition.py
+│
+├── producer.py
+├── consumer.py
+├── main.py
+├── consumer_offset.txt
+├── pytest.ini
+└── readme
+```
+
+## Log Storage
+
+Messages are stored in an append-only binary log.
+
+Each record has the format:
+
+```text
+[4-byte message length][message bytes]
+```
+
+For example:
+
+```text
+┌──────────────┬─────────────────┐
+│ length (4 B) │ message bytes   │
+└──────────────┴─────────────────┘
+```
+
+The log maintains an in-memory index:
+
+```text
+logical offset → physical byte position
+```
+
+Example:
+
+```python
+{
+    0: 0,
+    1: 15,
+    2: 33
+}
+```
+
+The logical offset identifies the message, while the physical position tells the broker where that message starts in the file.
+
+When the broker starts again, the index is rebuilt from the persistent log.
+
+## Partitions
+
+A `Partition` provides a higher-level abstraction over a log.
+
+```text
+Partition
+    │
+    └── Log
+          │
+          └── disk
+```
+
+Each partition has its own log and its own offset sequence.
+
+Partitions are independent:
+
+```text
+orders
+├── partition 0 → 0.log
+├── partition 1 → 1.log
+└── partition 2 → 2.log
+```
+
+## TCP Protocol
+
+The current protocol uses newline-delimited requests.
+
+Append:
+
+```text
+APPEND <message>
+```
+
+Read:
+
+```text
+READ <offset>
+```
+
+Responses are also newline-delimited:
+
+```text
+OK <offset>
+OK <message>
+EMPTY
+ERROR <reason>
+```
+
+Because TCP is a byte stream rather than a message protocol, the broker maintains a receive buffer and extracts complete requests whenever `\n` is encountered.
+
+## Consumer Polling
+
+The consumer maintains the next offset it needs to read.
+
+If the requested offset does not exist yet, the broker returns:
+
+```text
+EMPTY
+```
+
+The consumer then waits and polls again.
+
+Conceptually:
+
+```text
+READ 32
+   │
+   ├── message exists → return message
+   │
+   └── no message
+          │
+          ▼
+       wait
+          │
+          ▼
+       READ 32
+```
+
+The next stage will eventually replace aggressive polling with more realistic polling/long-polling behavior.
+
+## Testing
+
+Tests use pytest.
+
+Run all tests:
+
+```powershell
+pytest
+```
+
+Run partition tests:
+
+```powershell
+pytest tests/test_partition.py
+```
+
+The tests currently cover partition creation, reading, offset existence, and persistence.
+
+## Roadmap
+
+### Storage
+
+* [x] Append-only log
+* [x] Persistent offsets
+* [x] Log index
+* [x] Partition abstraction
+* [ ] Topic abstraction
+* [ ] Topic persistence/management
+
+### Messaging
+
+* [x] TCP producer
+* [x] TCP consumer
+* [x] Request/response framing
+* [x] Concurrent client connections
+* [ ] Topic-aware protocol
+* [ ] Consumer groups
+* [ ] Multiple consumers
+* [ ] Partition assignment
+* [ ] Better offset management
+
+### Concurrency & Performance
+
+* [x] Thread-per-connection
+* [ ] Thread limits / thread pool
+* [ ] Connection limits
+* [ ] Backpressure
+* [ ] Poll timeout
+* [ ] Long polling
+* [ ] Performance measurements
+
+### Distributed System
+
+* [ ] Multiple broker processes
+* [ ] Broker identity
+* [ ] Partition ownership
+* [ ] Replication
+* [ ] Leader/follower model
+* [ ] Failure detection
+* [ ] Leader election
+* [ ] Recovery
+
+### Deployment & Scaling
+
+* [ ] Containerized brokers
+* [ ] Kubernetes pods
+* [ ] Horizontal scaling
+* [ ] Autoscaling
+* [ ] Partition rebalancing
+
+## Design Goal
+
+The project is intentionally built in layers:
+
+```text
+Log
+ ↓
+Partition
+ ↓
+Topic
+ ↓
+Broker
+ ↓
+Consumer Groups
+ ↓
+Replication
+ ↓
+Multiple Brokers
+ ↓
+Scaling & Failure Recovery
+```
+
+Each layer is implemented and tested before adding the next one.
+
+The primary goal is to understand the distributed-systems concepts behind Kafka rather than simply reproduce Kafka's API.
