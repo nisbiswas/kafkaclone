@@ -1,9 +1,15 @@
 
+import os
 import struct
 
 class Log:
 
     def __init__(self,filename):
+
+        directory=os.path.dirname(filename)
+        if directory:
+                    os.makedirs(directory,exist_ok=True)
+
         self.file=open(filename,"ab+")
 
         self.index={}
