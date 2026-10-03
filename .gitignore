@@ -1,6 +1,3 @@
-.venv
-/venv
-
 # Python
 __pycache__/
 *.py[cod]
@@ -10,8 +7,12 @@ __pycache__/
 .venv/
 venv/
 
-# Test artifacts
+# Pytest
 .pytest_cache/
 
-# Generated Kafka log files
-logs/*.log
+# Generated broker logs
+logs/
+Logs/
+
+# Consumer local state
+consumer_offset.txt

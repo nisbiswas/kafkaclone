@@ -1,14 +1,16 @@
 import socket
 
-from log import Log
+from .broker import Broker
 
 import threading
+
+
 
 
 HOST="127.0.0.1"
 PORT=9092
 
-def handle_client(conn,address,log):
+def handle_client(conn,address,broker):
     print("Client connected: ",address)
            
     buffer=b""
@@ -27,30 +29,34 @@ def handle_client(conn,address,log):
    
             print("Request: ",request)
    
-            parts=request.split(" ",1)
+            parts=request.split(" ")
    
             cmd=parts[0]
    
             try:
                 if cmd=="APPEND":
-                    msg=parts[1]
-                    offset=log.append(msg)
+                   
+                    topic_name=parts[1]
+                    partition_id=int(parts[2])
+                    msg="".join(parts[3:])
+                    offset=broker.append(topic_name,partition_id,msg)
                     response=f"OK {offset}"
    
                     print("APPEND offset: ",offset)
-                    print("Index after append: ", log.index)
    
                 elif cmd=="READ":
-                    offset=int(parts[1])
+                     topic_name=parts[1]
+                     partition_id=int(parts[2])
+                     offset=int(parts[3])
    
-                    if offset not in log.index:
+                     if not broker.has_offset(topic_name,partition_id,offset):
                         response="EMPTY"
-                    else:
-                        msg=log.read(offset)
+
+                     else:
+                        msg=broker.read(topic_name,partition_id,offset)
                         response=f"OK {msg}"
    
                         print("READ offset: ",offset)
-                        print("Index after append: ", log.index)
                            
                 else:
                     response="ERROR unknown command"
@@ -66,9 +72,12 @@ def handle_client(conn,address,log):
 
 
 def main():
-    log=Log("logs/0.log")
+    broker=Broker("Logs")
 
-    print("Loaded Index: ",log.index)
+    topic=broker.create_topic(topic_name="orders",num_partitions=3)
+
+    print(f"Created topic :",topic.topic_name)
+    print(f"Number of partitions :",len(topic.partitions))
 
     server=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
 
@@ -84,7 +93,7 @@ def main():
     while True:
         conn,address=server.accept()
 
-        thread=threading.Thread(target=handle_client,args=(conn,address,log))
+        thread=threading.Thread(target=handle_client,args=(conn,address,broker))
         thread.start()
         
 

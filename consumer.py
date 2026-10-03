@@ -36,8 +36,12 @@ def main():
     sock=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     sock.connect((HOST,PORT))
 
+    topic_name=input("Enter topic name: ")
+    partition_id=int(input("Enter partition id: "))
+
+
     while True:
-        request=f"READ {offset}\n"
+        request=f"READ {topic_name} {partition_id} {offset}\n"
         
         sock.sendall(request.encode("utf-8"))
         
