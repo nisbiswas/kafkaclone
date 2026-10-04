@@ -38,7 +38,7 @@ def handle_client(conn,address,broker):
                    
                     topic_name=parts[1]
                     partition_id=int(parts[2])
-                    msg="".join(parts[3:])
+                    msg=" ".join(parts[3:])
                     offset=broker.append(topic_name,partition_id,msg)
                     response=f"OK {offset}"
    
@@ -57,6 +57,21 @@ def handle_client(conn,address,broker):
                         response=f"OK {msg}"
    
                         print("READ offset: ",offset)
+
+                elif cmd=="FETCH_OFFSET":
+                    group_id=parts[1]
+                    topic_name=parts[2]
+                    partition_id=int(parts[3])
+                    offset=broker.get_offset(group_id,topic_name,partition_id)
+                    response=f"OK {offset}"
+
+                elif cmd=="COMMIT_OFFSET":
+                    group_id=parts[1]
+                    topic_name=parts[2]
+                    partition_id=int(parts[3])
+                    offset=int(parts[4])
+                    broker.commit_offset(group_id,topic_name,partition_id,offset)
+                    response="OK"
                            
                 else:
                     response="ERROR unknown command"

@@ -1,10 +1,12 @@
 from .topic import Topic
+from .offset_store import OffsetStore
 
 
 class Broker:
     def __init__(self,log_dir):
         self.log_dir=log_dir
         self.topics={}
+        self.offset_store=OffsetStore(f"{log_dir}/offsets")
 
     def create_topic(self,topic_name,num_partitions):
         if topic_name in self.topics:
@@ -56,3 +58,9 @@ class Broker:
             raise ValueError(f"Partition '{partition_id}' does not exist in topic '{topic_name}'")
 
         return partition.has_offset(offset)
+
+    def commit_offset(self,group_id,topic_name,partition_id,offset):
+        self.offset_store.commit(group_id,topic_name,partition_id,offset)
+
+    def get_offset(self,group_id,topic_name,partition_id):
+        return self.offset_store.get(group_id,topic_name,partition_id)
