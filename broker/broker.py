@@ -1,5 +1,6 @@
 from .topic import Topic
 from .offset_store import OffsetStore
+from .group import ConsumerGroup
 
 
 class Broker:
@@ -7,6 +8,7 @@ class Broker:
         self.log_dir=log_dir
         self.topics={}
         self.offset_store=OffsetStore(f"{log_dir}/offsets")
+        self.groups={}
 
     def create_topic(self,topic_name,num_partitions):
         if topic_name in self.topics:
@@ -64,3 +66,41 @@ class Broker:
 
     def get_offset(self,group_id,topic_name,partition_id):
         return self.offset_store.get(group_id,topic_name,partition_id)
+
+    def join_group(self,group_id,topic_name,consumer_id):
+
+
+        topic=self.get_topic(topic_name)
+        if not topic:
+            raise ValueError(f"Topic '{topic_name}' does not exist")
+        group_key=(group_id,topic_name)
+
+        if group_key not in self.groups:
+
+            self.groups[group_key]=ConsumerGroup(group_id,topic_name,len(topic.partitions))
+
+        group=self.groups.get(group_key)
+
+        return group.join(consumer_id)
+
+    def leave_group(self,group_id,topic_name,consumer_id):
+
+        group_key=(group_id,topic_name)
+
+        group=self.groups.get(group_key)
+
+        if not group:
+            raise ValueError(f"Consumer group '{group_id}' does not exist")
+
+        group.leave(consumer_id)
+
+    def get_assignment(self,group_id,topic_name,consumer_id):
+
+        group_key=(group_id,topic_name)
+
+        group=self.groups.get(group_key)
+
+        if not group:
+            raise ValueError(f"Consumer group '{group_id}' does not exist")
+
+        return group.get_assignment(consumer_id)

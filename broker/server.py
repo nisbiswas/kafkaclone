@@ -72,6 +72,31 @@ def handle_client(conn,address,broker):
                     offset=int(parts[4])
                     broker.commit_offset(group_id,topic_name,partition_id,offset)
                     response="OK"
+
+                elif cmd=="JOIN_GROUP":
+                    group_id=parts[1]
+                    topic_name=parts[2]
+                    consumer_id=parts[3]
+                    partitions=broker.join_group(group_id,topic_name,consumer_id)
+
+                    partition_str=",".join(str(p) for p in partitions)
+                    response=f"ASSIGN {partition_str}"
+
+                elif cmd=="LEAVE_GROUP":
+                    group_id=parts[1]
+                    topic_name=parts[2]
+                    consumer_id=parts[3]
+                    broker.leave_group(group_id,topic_name,consumer_id)
+                    response="OK"
+
+                elif cmd=="HEARTBEAT":
+                    group_id=parts[1]
+                    topic_name=parts[2]
+                    consumer_id=parts[3]
+
+                    partitions=broker.get_assignment(group_id,topic_name,consumer_id)
+                    partition_str=",".join(str(p) for p in partitions)
+                    response=f"ASSIGN {partition_str}"
                            
                 else:
                     response="ERROR unknown command"
