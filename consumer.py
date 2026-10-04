@@ -1,30 +1,10 @@
-import os
+
 import socket
 import time
 
 HOST="127.0.0.1"
 PORT=9092
 
-OFFSET_FILE="consumer_offset.txt"
-OFFSET_DIR="consumer_offsets"
-
-
-
-
-def load_offset(topic_name, partition_id):
-    offset_file=f"{OFFSET_DIR}/{topic_name}_{partition_id}.txt"
-    try:
-        with open(offset_file,"r") as file:
-           return int(file.read())
-
-    except FileNotFoundError:
-        return 0
-
-
-def save_offset(offset,topic_name, partition_id):
-    offset_file=f"{OFFSET_DIR}/{topic_name}_{partition_id}.txt"
-    with open(offset_file,"w") as file:
-        file.write(str(offset))
 
 def recv_response(sock):
     buffer=b""
@@ -36,13 +16,33 @@ def recv_response(sock):
     response, _=buffer.split(b"\n",1)
     return response.decode("utf-8")
 
+def fetch_offset(sock,group_id,topic_name,partition_id):
+    request=f"FETCH_OFFSET {group_id} {topic_name} {partition_id}\n"
+    sock.sendall(request.encode("utf-8"))
+    response=recv_response(sock)
+    if response.startswith("OK "):
+        offset=int(response[3:])
+        return offset
+    else:
+        raise Exception(f"Error fetching offset: {response}")
+
+
+def commit_offset(sock,group_id,topic_name,partition_id,offset):
+    request=f"COMMIT_OFFSET {group_id} {topic_name} {partition_id} {offset}\n"
+    sock.sendall(request.encode("utf-8"))
+    response=recv_response(sock)
+    if response=="OK":
+        return
+    else:
+        raise Exception(f"Error committing offset: {response}")
+
 def main():
 
-    os.makedirs(OFFSET_DIR, exist_ok=True)
-    
+
     topic_name=input("Enter topic name: ")
     partition_id=int(input("Enter partition id: "))
-    offset=load_offset(topic_name, partition_id)
+    group_id=input("Enter consumer group id: ")
+    offset=fetch_offset(sock, group_id, topic_name, partition_id)
 
     print(f"Starting consumer for topic '{topic_name}', partition {partition_id}, starting from offset {offset}")
 
@@ -61,7 +61,7 @@ def main():
             msg=response[3:]
             print("Msg received",msg)
             offset+=1
-            save_offset(offset, topic_name, partition_id)
+            commit_offset(sock, group_id, topic_name, partition_id, offset)
         elif response=="EMPTY":
             print("No new messages, waiting...")
             time.sleep(1)
