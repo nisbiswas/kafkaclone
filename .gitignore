@@ -16,3 +16,5 @@ Logs/
 
 # Consumer local state
 consumer_offset.txt
+
+consumer_offsets/
