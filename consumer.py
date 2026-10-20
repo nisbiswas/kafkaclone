@@ -5,28 +5,6 @@ import time
 HOST="127.0.0.1"
 PORT=9092
 
-<<<<<<< HEAD
-OFFSET_DIR="consumer_offsets"
-
-
-
-
-def load_offset(group_id,topic_name, partition_id):
-    offset_file=f"{OFFSET_DIR}/{group_id}_{topic_name}_{partition_id}.txt"
-    try:
-        with open(offset_file,"r") as file:
-           return int(file.read())
-
-    except FileNotFoundError:
-        return 0
-
-
-def save_offset(group_id,offset,topic_name, partition_id):
-    offset_file=f"{OFFSET_DIR}/{group_id}_{topic_name}_{partition_id}.txt"
-    with open(offset_file,"w") as file:
-        file.write(str(offset))
-=======
->>>>>>> nisbiswas/consumerOffsets
 
 def recv_response(sock):
     buffer=b""
@@ -96,22 +74,10 @@ def read_partition(sock,topic_name,partition_id,offset):
 
 def main():
 
-<<<<<<< HEAD
-    os.makedirs(OFFSET_DIR, exist_ok=True)
     
     topic_name=input("Enter topic name: ")
-    partition_id=int(input("Enter partition id: "))
-    group_id=input("Enter consumer group id: ")
-    offset=load_offset(group_id, topic_name, partition_id)
-
-    print(f"Starting consumer for topic '{topic_name}', partition {partition_id}, group {group_id}, starting from offset {offset}")
-=======
-
-    topic_name=input("Enter topic name: ")
-    group_id=input("Enter consumer group id: ")
     consumer_id=input("Enter consumer id: ")
-    
->>>>>>> nisbiswas/consumerOffsets
+    group_id=input("Enter consumer group id: ")
 
     sock=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
     sock.connect((HOST,PORT))
@@ -143,17 +109,6 @@ def main():
                     print(f"Partition {partition_id} - No new messages")
                 else:
                     print(f"Partition {partition_id} - Error: {response}")
-
-<<<<<<< HEAD
-        if response.startswith("OK "):
-            msg=response[3:]
-            print("Msg received",msg)
-            offset+=1
-            save_offset(group_id, offset, topic_name, partition_id)
-        elif response=="EMPTY":
-            print("No new messages, waiting...")
-=======
->>>>>>> nisbiswas/consumerOffsets
             time.sleep(1)
 
     except KeyboardInterrupt:
