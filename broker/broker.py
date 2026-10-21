@@ -104,3 +104,27 @@ class Broker:
             raise ValueError(f"Consumer group '{group_id}' does not exist")
 
         return group.get_assignment(consumer_id)
+
+    def heartbeat(self,group_id,topic_name,consumer_id):
+
+        group_key=(group_id,topic_name)
+
+        group=self.groups.get(group_key)
+
+        if not group:
+            raise ValueError(
+                f"Consumer group '{group_id}' does not exist"
+            )
+        return group.heartbeat(consumer_id)
+
+    def remove_expired_consumers(self):
+        for (group_id,topic_name), group in list(self.groups.items()):
+            expired_consumers=group.remove_expired_consumers()
+
+            for consumer_id in expired_consumers:
+                print(
+                    f"[GROUP TIMEOUT] Consumer '{consumer_id}' "
+                    f"expired from group '{group_id}'"
+                    f" on topic '{topic_name}'"
+                )
+

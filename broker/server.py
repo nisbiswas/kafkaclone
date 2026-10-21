@@ -4,6 +4,7 @@ from .broker import Broker
 
 import threading
 
+import time
 
 
 
@@ -16,100 +17,110 @@ def handle_client(conn,address,broker):
     buffer=b""
    
     while True:
-        data=conn.recv(4096)
+        try:
+            data=conn.recv(4096)
    
-        if not data:
-            break
-        buffer+=data
+            if not data:
+                break
+            buffer+=data
    
-        while b"\n" in buffer:
-            raw_request,buffer=buffer.split(b"\n",1)
+            while b"\n" in buffer:
+                raw_request,buffer=buffer.split(b"\n",1)
    
-            request=raw_request.decode("utf-8").strip()
+                request=raw_request.decode("utf-8").strip()
    
-            print("Request: ",request)
+                print("Request: ",request)
    
-            parts=request.split(" ")
+                parts=request.split(" ")
    
-            cmd=parts[0]
+                cmd=parts[0]
    
-            try:
-                if cmd=="APPEND":
+                try:
+                    if cmd=="APPEND":
                    
-                    topic_name=parts[1]
-                    partition_id=int(parts[2])
-                    msg=" ".join(parts[3:])
-                    offset=broker.append(topic_name,partition_id,msg)
-                    response=f"OK {offset}"
+                        topic_name=parts[1]
+                        partition_id=int(parts[2])
+                        msg=" ".join(parts[3:])
+                        offset=broker.append(topic_name,partition_id,msg)
+                        response=f"OK {offset}"
    
-                    print("APPEND offset: ",offset)
+                        print("APPEND offset: ",offset)
    
-                elif cmd=="READ":
-                     topic_name=parts[1]
-                     partition_id=int(parts[2])
-                     offset=int(parts[3])
+                    elif cmd=="READ":
+                        topic_name=parts[1]
+                        partition_id=int(parts[2])
+                        offset=int(parts[3])
    
-                     if not broker.has_offset(topic_name,partition_id,offset):
-                        response="EMPTY"
+                        if not broker.has_offset(topic_name,partition_id,offset):
+                            response="EMPTY"
 
-                     else:
-                        msg=broker.read(topic_name,partition_id,offset)
-                        response=f"OK {msg}"
+                        else:
+                            msg=broker.read(topic_name,partition_id,offset)
+                            response=f"OK {msg}"
    
-                        print("READ offset: ",offset)
+                            print("READ offset: ",offset)
 
-                elif cmd=="FETCH_OFFSET":
-                    group_id=parts[1]
-                    topic_name=parts[2]
-                    partition_id=int(parts[3])
-                    offset=broker.get_offset(group_id,topic_name,partition_id)
-                    response=f"OK {offset}"
+                    elif cmd=="FETCH_OFFSET":
+                        group_id=parts[1]
+                        topic_name=parts[2]
+                        partition_id=int(parts[3])
+                        offset=broker.get_offset(group_id,topic_name,partition_id)
+                        response=f"OK {offset}"
 
-                elif cmd=="COMMIT_OFFSET":
-                    group_id=parts[1]
-                    topic_name=parts[2]
-                    partition_id=int(parts[3])
-                    offset=int(parts[4])
-                    broker.commit_offset(group_id,topic_name,partition_id,offset)
-                    response="OK"
+                    elif cmd=="COMMIT_OFFSET":
+                        group_id=parts[1]
+                        topic_name=parts[2]
+                        partition_id=int(parts[3])
+                        offset=int(parts[4])
+                        broker.commit_offset(group_id,topic_name,partition_id,offset)
+                        response="OK"
 
-                elif cmd=="JOIN_GROUP":
-                    group_id=parts[1]
-                    topic_name=parts[2]
-                    consumer_id=parts[3]
-                    partitions=broker.join_group(group_id,topic_name,consumer_id)
+                    elif cmd=="JOIN_GROUP":
+                        group_id=parts[1]
+                        topic_name=parts[2]
+                        consumer_id=parts[3]
+                        partitions=broker.join_group(group_id,topic_name,consumer_id)
 
-                    partition_str=",".join(str(p) for p in partitions)
-                    response=f"ASSIGN {partition_str}"
+                        partition_str=",".join(str(p) for p in partitions)
+                        response=f"ASSIGN {partition_str}"
 
-                elif cmd=="LEAVE_GROUP":
-                    group_id=parts[1]
-                    topic_name=parts[2]
-                    consumer_id=parts[3]
-                    broker.leave_group(group_id,topic_name,consumer_id)
-                    response="OK"
+                    elif cmd=="LEAVE_GROUP":
+                        group_id=parts[1]
+                        topic_name=parts[2]
+                        consumer_id=parts[3]
+                        broker.leave_group(group_id,topic_name,consumer_id)
+                        response="OK"
 
-                elif cmd=="HEARTBEAT":
-                    group_id=parts[1]
-                    topic_name=parts[2]
-                    consumer_id=parts[3]
+                    elif cmd=="HEARTBEAT":
+                        group_id=parts[1]
+                        topic_name=parts[2]
+                        consumer_id=parts[3]
 
-                    partitions=broker.get_assignment(group_id,topic_name,consumer_id)
-                    partition_str=",".join(str(p) for p in partitions)
-                    response=f"ASSIGN {partition_str}"
+                        partitions=broker.heartbeat(group_id,topic_name,consumer_id)
+                        partition_str=",".join(str(p) for p in partitions)
+                        response=f"ASSIGN {partition_str}"
                            
-                else:
-                    response="ERROR unknown command"
-            except Exception as e:
-                    response=f"ERROR {e}"
+                    else:
+                        response="ERROR unknown command"
+                except Exception as e:
+                        response=f"ERROR {e}"
+            
    
-            conn.sendall((response+"\n").encode("utf-8"))
-           
+                conn.sendall((response+"\n").encode("utf-8"))
+
+        except (ConnectionResetError,ConnectionAbortedError):
+            print(f"[CLIENT DISCONNECTED] {address} ",flush=True)    
+            break
    
     conn.close()
 
     print("Client disconnected: ",address)
 
+
+def monitor_consumers(broker):
+    while True:
+        broker.remove_expired_consumers()
+        time.sleep(2)
 
 def main():
     broker=Broker("Logs")
@@ -128,8 +139,14 @@ def main():
     server.listen()
 
     print(f"Broker listening on {HOST}:{PORT}")
-    
 
+    monitor_thread=threading.Thread(
+        target=monitor_consumers,
+        args=(broker,),
+        daemon=True
+    )
+    
+    monitor_thread.start()
     while True:
         conn,address=server.accept()
 
