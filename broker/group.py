@@ -1,5 +1,5 @@
 import threading
-
+import time
 
 class ConsumerGroup:
 
@@ -14,21 +14,27 @@ class ConsumerGroup:
 
         self.lock=threading.Lock()
 
+        self.last_heartbeat={}
+        self.session_timeout=15
+
     def join(self,consumer_id):
                
         with self.lock:
             self.members.add(consumer_id)
+
+            self.last_heartbeat[consumer_id]=time.monotonic()
             self.rebalance()
             return self.assignments[consumer_id]
 
     def leave(self,consumer_id):
         with self.lock:
             self.members.discard(consumer_id)
+            self.last_heartbeat.pop(consumer_id,None)
             self.rebalance()
 
     def get_assignment(self,consumer_id):
         with self.lock:
-            return self.assignments.get(consumer_id,[])
+            return self.assignments.get(consumer_id,[]).copy()
         
 ## implementting self rebalance using round robin 
    
@@ -46,3 +52,33 @@ class ConsumerGroup:
             assignments[member].append(partition_id)
 
         self.assignments=assignments
+
+
+    def heartbeat(self,consumer_id):
+        with self.lock:
+            if consumer_id not in self.members:
+                raise ValueError(
+                    f"Consumer '{consumer_id}' is not part of the group '{self.group_id}'"
+                )
+            self.last_heartbeat[consumer_id]=time.monotonic()
+            return self.assignments.get(consumer_id,[]).copy()
+
+    def remove_expired_consumers(self):
+        with self.lock:
+            curr_time=time.monotonic()
+            expired_consumers=[]
+
+            for consumer_id,last_seen in self.last_heartbeat.items():
+                if curr_time-last_seen>self.session_timeout:
+                    expired_consumers.append(consumer_id)
+
+            if not expired_consumers:
+                return []
+
+            for consumer_id in expired_consumers:
+                self.members.discard(consumer_id)
+                self.last_heartbeat.pop(consumer_id,None)
+
+            self.rebalance()
+
+            return expired_consumers
