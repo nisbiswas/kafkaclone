@@ -1,6 +1,13 @@
 from .topic import Topic
 from .offset_store import OffsetStore
 from .group import ConsumerGroup
+from .metrics import (
+    messages_produced,
+    messages_read,
+    active_consumers,
+    produce_latency,
+    read_latency,
+)
 
 
 class Broker:
@@ -28,10 +35,15 @@ class Broker:
             raise ValueError(f"Topic '{topic_name}' does not exist")
 
         partition=topic.get_partition(partition_id)
+
         if not partition:
             raise ValueError(f"Partition '{partition_id}' does not exist in topic '{topic_name}'")
 
-        return partition.append(message)
+        with produce_latency.labels(topic=topic_name).time():
+            offset=partition.append(message)
+            messages_produced.labels(topic=topic_name,partition=partition_id).inc()
+        
+        return offset
 
     def read(self,topic_name,partition_id,offset):
 
@@ -45,6 +57,13 @@ class Broker:
         if not partition:
             raise ValueError(f"Partition '{partition_id}' does not exist in topic '{topic_name}'")
 
+
+        with read_latency.labels(topic=topic_name,partition=partition_id).time():
+            message=partition.read(offset)
+
+        if message is not None:
+            messages_read.labels(topic=topic_name,partition=partition_id).inc()
+        
         return partition.read(offset)
     
 
