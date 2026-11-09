@@ -6,6 +6,9 @@ import threading
 
 import time
 
+from prometheus_client import start_http_server
+from broker.metrics import broker_up
+
 
 
 HOST="127.0.0.1"
@@ -124,6 +127,12 @@ def monitor_consumers(broker):
 
 def main():
     broker=Broker("Logs")
+
+    # Start Prometheus metrics server
+    start_http_server(8000,addr="0.0.0.0")
+
+    broker_up.set(1)  # Set broker health status to up
+    print("[METRICS] Prometheus metrics server started on port 8000")
 
     topic=broker.create_topic(topic_name="orders",num_partitions=3)
 
